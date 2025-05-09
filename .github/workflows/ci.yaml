@@ -13,7 +13,7 @@ jobs:
 
       - name: Get image repositories
         run: |
-          echo DOCKER_IMAGE_REPOSITORY=$(echo ${{ vars.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
+          echo DOCKER_IMAGE_REPOSITORY=$(echo maplarge/${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
           echo GHCR_IMAGE_REPOSITORY=$(echo ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
 
       - name: Get the release
