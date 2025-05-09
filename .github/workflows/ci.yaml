@@ -14,7 +14,7 @@ jobs:
       - name: Get image repositories
         run: |
           echo DOCKER_IMAGE_REPOSITORY=$(echo ${{ vars.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
-          echo GHCR_IMAGE_REPOSITORY=$(echo ghcr.io/${{ github.actor }}/${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
+          echo GHCR_IMAGE_REPOSITORY=$(echo ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
 
       - name: Get the release
         run: echo RELEASE=${GITHUB_REF/refs\/tags\//} >> $GITHUB_ENV
@@ -29,7 +29,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
