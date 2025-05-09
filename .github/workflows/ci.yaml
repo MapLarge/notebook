@@ -13,7 +13,7 @@ jobs:
 
       - name: Get image repositories
         run: |
-          echo DOCKER_IMAGE_REPOSITORY=$(echo ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
+          echo DOCKER_IMAGE_REPOSITORY=$(echo ${{ vars.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
           echo GHCR_IMAGE_REPOSITORY=$(echo ghcr.io/${{ github.actor }}/${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
 
       - name: Get the release
@@ -49,12 +49,22 @@ jobs:
             type=raw,value=${{ env.RELEASE }}
             type=raw,value=latest
 
-      - name: Build and Push Docker Image
-        if: github.event_name != "pull_request"
+      - name: Build on Pull Request
+        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64,linux/arm/v7,linux/arm64
+          platforms: linux/amd64,linux/arm64
           pull: true
-          push: ${{ github.event_name != "pull_request" }}
+          push: false
+          tags: 'dev'
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build and Push Docker Image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64
+          pull: true
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

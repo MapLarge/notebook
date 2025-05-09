@@ -1,6 +1,6 @@
-ARG BASE_REGISTRY=
-ARG BASE_IMAGE=
-ARG BASE_TAG=
+ARG BASE_REGISTRY=docker.io
+ARG BASE_IMAGE=python
+ARG BASE_TAG=3.12
 
 FROM ${BASE_REGISTRY}/${BASE_IMAGE}:${BASE_TAG}
 
@@ -10,7 +10,7 @@ WORKDIR /maplarge
 
 COPY maplarge/ .
 
-RUN dnf update -y
+RUN apt-get update -y
 
 RUN pip3 install /maplarge/ml_python_packages/maplargeclient
 
