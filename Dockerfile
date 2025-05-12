@@ -17,7 +17,8 @@ RUN pip3 install /maplarge/ml_python_packages/maplargeclient
 # MapLarge mounts the docker volume to /tmp/config but unless
 # permissions are declared here, it will be mounted as root and
 # this container will be unable to write to it
-RUN mkdir -p /tmp/config && chgrp -R 0 /tmp/config && \
+RUN mkdir -p /tmp/config && \
+  chgrp -R 0 /tmp/config && \
   chmod -R g=u /tmp/config && \
   chmod a+x /maplarge/entrypoint.sh && \
   chgrp -R 0 /maplarge && \
