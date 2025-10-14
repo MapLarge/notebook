@@ -22,7 +22,9 @@ RUN mkdir -p /tmp/config && \
   chmod -R g=u /tmp/config && \
   chmod a+x /maplarge/entrypoint.sh && \
   chgrp -R 0 /maplarge && \
-  chmod -R g=u /maplarge
+  chmod -R g=u /maplarge && \
+  chgrp -R 0 /usr/local/lib/python3.12/site-packages && \
+  chmod -R g=u /usr/local/lib/python3.12/site-packages
 
 # Change to a non-root user
 USER 1000
