@@ -14,17 +14,24 @@ RUN apt-get update -y
 
 RUN pip3 install /maplarge/ml_python_packages/maplargeclient
 
+# Create a non-root user and group to run the application
+RUN groupadd -r maplarge && useradd -r -g maplarge -u 1000 maplarge
+
 # MapLarge mounts the docker volume to /tmp/config but unless
 # permissions are declared here, it will be mounted as root and
-# this container will be unable to write to it
-RUN mkdir -p /tmp/config && \
-  chgrp -R 0 /tmp/config && \
-  chmod -R g=u /tmp/config && \
-  chmod a+x /maplarge/entrypoint.sh && \
-  chgrp -R 0 /maplarge && \
-  chmod -R g=u /maplarge && \
-  chgrp -R 0 /usr/local/lib/python3.12/site-packages && \
-  chmod -R g=u /usr/local/lib/python3.12/site-packages
+# this container will be unable to write to it. These other directories
+# are modified so python can write packages to the preferred locations.
+# A user is created and the chgrp and chmod commands are used to allow
+# the container to run in OpenShift.
+ARG DIRS="/tmp/config /maplarge /usr/local/lib/python*/site-packages /usr/local/bin"
+
+RUN for dir in $DIRS; do \
+  mkdir -p $dir && \
+  chgrp -R 0 $dir && \
+  chmod -R g=u $dir && \
+  chown -R 1000:maplarge $dir ; \
+  done && \
+  chmod a+x /maplarge/entrypoint.sh
 
 # Change to a non-root user
 USER 1000
