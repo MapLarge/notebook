@@ -67,9 +67,9 @@ class ProxyResponse:
 class MapLargeClient(object):
 	def __init__(self, port: int, hbReqPort: int, hbRepPort: int):
 		logging.info(f"Creating MapLargeClient instance: ports main={port}, hbReq={hbReqPort}, hbRep={hbRepPort}, process PID={os.getpid()}")
-
+		
 		self._runProcess: Process | None = None
-
+		
 		# Create ZMQ context and socket for sending requests (reused across all requests)
 		self._zmq_context = zmq.Context()
 		self._queuePushSocket = None
@@ -82,7 +82,7 @@ class MapLargeClient(object):
 		self._shared_exception = self._manager.Value('c', "")
 
 		self._should_continue_event = MP_Event()
-
+		
 		# Queue for receiving responses from poller process
 		self._response_queue = Queue()
 
@@ -96,7 +96,7 @@ class MapLargeClient(object):
 				os.remove(ipc_path)
 			except:
 				pass
-
+		
 		self._queue_address = f"ipc://{ipc_path}"
 		self._requests = {}
 
@@ -132,13 +132,13 @@ class MapLargeClient(object):
 			messageParts.extend(chunks)
 
 		self._requests[id] = { "complete": False, "result": None, "error": None }
-
+		
 		if self._queuePushSocket is None:
 			self._queuePushSocket = self._zmq_context.socket(zmq.PUSH)
 			self._queuePushSocket.setsockopt(zmq.LINGER, 0)
 			self._queuePushSocket.setsockopt(zmq.SNDTIMEO, 5000)
 			self._queueSocketConnected = False
-
+		
 		if not self._queueSocketConnected:
 			max_connect_retries = 10
 			for retry in range(max_connect_retries):
@@ -152,7 +152,7 @@ class MapLargeClient(object):
 					else:
 						self._queuePushSocket = None
 						raise
-
+		
 		try:
 			self._queuePushSocket.send_multipart(messageParts, copy=False)
 		except Exception:
@@ -192,17 +192,17 @@ class MapLargeClient(object):
 
 		logging.debug(f"Request {action} successful")
 		return self._requests[id]["result"]
-
+	
 	def _clearRequest(self, id):
 		if id in self._requests:
 			del self._requests[id]
 
 	def stop(self):
 		logging.debug("Stopping poll process")
-
+		
 		self._should_continue_event.set()
 		self._shared_running.value = False
-
+		
 		if self._runProcess is not None and self._runProcess.is_alive():
 			logging.info(f"Joining process PID {self._runProcess.pid}")
 			self._runProcess.join(timeout=5)
@@ -214,9 +214,9 @@ class MapLargeClient(object):
 					logging.error(f"Process {self._runProcess.pid} still alive, killing")
 					self._runProcess.kill()
 					self._runProcess.join()
-
+		
 		logging.debug("Poll process stopped")
-
+		
 		# Clean up ZMQ socket and context
 		if self._queuePushSocket is not None:
 			try:
@@ -226,7 +226,7 @@ class MapLargeClient(object):
 				pass
 			self._queuePushSocket = None
 			self._queueSocketConnected = False
-
+		
 		if self._zmq_context is not None:
 			try:
 				self._zmq_context.term()
@@ -234,7 +234,7 @@ class MapLargeClient(object):
 			except:
 				pass
 			self._zmq_context = None
-
+		
 		# Clean up IPC socket file if using IPC
 		if self._queue_address is not None and self._queue_address.startswith('ipc://'):
 			# Extract path from ipc:// format (handles both ipc://path and ipc:///path)
@@ -275,20 +275,20 @@ class MapLargeClient(object):
 				self.stop()
 			except:
 				pass
-
+		
 		# Recreate ZMQ context if it was terminated
 		if self._zmq_context is None or self._zmq_context.closed:
 			logging.debug("Recreating ZMQ context")
 			self._zmq_context = zmq.Context()
 			self._queuePushSocket = None
 			self._queueSocketConnected = False
-
+		
 		self._should_continue_event.clear()
 		self._shared_connectedSelf.value = False
 		self._shared_connectedRemote.value = False
 		self._shared_running.value = True
 		self._shared_exception.value = ""
-
+		
 		logging.info(f"Starting poll process with ports: main={self._port}, hbReq={self._hbReqPort}, hbRep={self._hbRepPort}, queue={self._queue_address}")
 		self._runProcess = Process(target=_run_poll_loop, args=(
 			self._port, self._hbReqPort, self._hbRepPort,
@@ -320,7 +320,7 @@ class MapLargeClient(object):
 			self.stop()
 		except:
 			pass
-
+		
 		raise SystemExit(0)
 
 	def SetOutputSchema(self, copyFromSource=None, columns=None):
@@ -391,12 +391,23 @@ class MapLargeClient(object):
 		}
 
 		self._request("WriteData", request)
+	
+	def DeleteData(self, table, filter=None):
+		request = { "table": table }
+		
+		if filter is not None:
+			if isinstance(filter, str):
+				request["filter"] = filter
+			else:
+				request["filter"] = json.dumps(filter)
+		
+		self._request("DeleteData", request)
 
 	def GetRecordCount(self, source, filter=None):
 		isCached, recordCount = _tryReadRecordCountsCache(source, filter)
 		if isCached:
 			return recordCount
-
+		
 		self.GetData(source, 0, 1, filter=filter)
 		return _readRecordCountsCache(source, filter)
 
@@ -553,10 +564,10 @@ class MapLargeClient(object):
 		return ProxyResponse(io.BytesIO(combined_bytes))
 
 def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
-				   shared_connectedSelf, shared_connectedRemote,
-				   shared_exception, should_continue_event, response_queue,
-				   shared_running):
-	context: zmq.Context | None = None
+	shared_connectedSelf, shared_connectedRemote,
+	shared_exception, should_continue_event, response_queue,
+	shared_running):
+	context: zmq.Context = None
 	socket = None
 	hbReqSocket = None
 	hbRepSocket = None
@@ -574,7 +585,7 @@ def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 	try:
 		# Create new ZMQ context in child process
 		context = zmq.Context()
-
+			
 		# BIND sockets in child process (this is where the polling happens)
 		socket = context.socket(zmq.DEALER)
 		socket.setsockopt(zmq.RCVTIMEO, 5000)
@@ -608,12 +619,12 @@ def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 		while not should_continue_event.is_set() and parent_pid == os.getppid():
 			# Process incoming messages
 			socks = dict(poller.poll(500))
-
+				
 			# Check for pending messages in the queue socket
 			if queuePullSocket in socks and socks[queuePullSocket] == zmq.POLLIN:
 				msg = queuePullSocket.recv_multipart()
 				socket.send_multipart(msg, copy=False)
-
+				
 			if socket in socks and socks[socket] == zmq.POLLIN:
 				message = socket.recv_multipart()
 
@@ -661,19 +672,19 @@ def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 				logging.debug(f'message pong received. {version_part} - {header_part}')
 
 				lastPongTime = time.time()
-
+					
 				if lastPongId == id_part:
 					shared_connectedSelf.value = True
 				else:
 					logging.info(f"Received unknown or old PONG. Expected: {lastPongId} Received: {id_part}")
 					shared_connectedSelf.value = False
-
+					
 				if lost_heartbeat:
 					lost_heartbeat = False
 					heartbeat_restored_message = "Heartbeat connection to server restored. Successfully sent PING."
 					logging.info(heartbeat_restored_message)
 					print(heartbeat_restored_message, file=sys.stderr)
-
+								
 			if time.time() > ping + 10:
 				ping = time.time()
 				try:
@@ -681,7 +692,7 @@ def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 					hbReqSocket.send_multipart([str.encode("2"), str.encode(lastPongId), str.encode("PING"), str.encode("")])
 				except:
 					pass
-
+						
 			if time.time() - lastPongTime > 300:
 				shared_connectedSelf.value = False
 				if not lost_heartbeat:
@@ -689,7 +700,7 @@ def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 					lost_heartbeat_message = "Lost heartbeat connection to server"
 					logging.error(lost_heartbeat_message)
 					print(lost_heartbeat_message, file=sys.stderr)
-
+						
 	except Exception as e:
 		shared_exception.value = str(e)
 	finally:
@@ -727,7 +738,7 @@ def _setRecordCountsCache(source, value, filter=None):
 def _hashFilter(filter):
 	if filter is None:
 		return ''
-
+		
 	try:
 		filterJson = json.dumps(filter, sort_keys=True, separators=(',',':'))
 		return hashlib.sha256(filterJson.encode('utf-8')).hexdigest()

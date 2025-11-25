@@ -83,6 +83,10 @@ def WriteData(table, data, append=False, append_mode=APPEND_MODE.DEFAULT, primar
 	_connectionCheck()
 	ml.WriteData(table, data, append, append_mode, primary_key)
 
+def DeleteData(table, filter=None):
+	_connectionCheck()
+	ml.DeleteData(table, filter)
+
 def GetData(source, start, take, columns=None, filter=None):
 	_connectionCheck()
 	return ml.GetData(source, start, take, columns, filter)
