@@ -5,7 +5,7 @@ import zmq
 import logging
 import uuid
 from threading import Timer
-from multiprocessing import Process, Manager, Queue, Event as MP_Event
+from multiprocessing import Process, Queue, Value, Event as MP_Event
 import pandas as pd
 import queue
 import hashlib
@@ -65,6 +65,8 @@ class ProxyResponse:
 			f.write(self.response.getvalue())
 
 class MapLargeClient(object):
+	running_clients: list['MapLargeClient'] = []
+
 	def __init__(self, port: int, hbReqPort: int, hbRepPort: int):
 		logging.info(f"Creating MapLargeClient instance: ports main={port}, hbReq={hbReqPort}, hbRep={hbRepPort}, process PID={os.getpid()}")
 		
@@ -75,16 +77,15 @@ class MapLargeClient(object):
 		self._queuePushSocket = None
 		self._queueSocketConnected = False
 
-		self._manager = Manager()
-		self._shared_running = self._manager.Value('b', False)
-		self._shared_connectedSelf = self._manager.Value('b', False)
-		self._shared_connectedRemote = self._manager.Value('b', False)
-		self._shared_exception = self._manager.Value('c', "")
+		self._shared_running = Value('b', False)
+		self._shared_connectedSelf = Value('b', False)
+		self._shared_connectedRemote = Value('b', False)
 
 		self._should_continue_event = MP_Event()
 		
 		# Queue for receiving responses from poller process
 		self._response_queue = Queue()
+		self._exception_queue = Queue()
 
 		self._port = port
 		self._hbReqPort = hbReqPort
@@ -109,6 +110,15 @@ class MapLargeClient(object):
 	@property
 	def running(self):
 		return self._shared_running.value
+
+	def _drain_exceptions(self):
+		last_exception = None
+		while True:
+			try:
+				last_exception = self._exception_queue.get_nowait()
+			except queue.Empty:
+				break
+		return last_exception
 
 	def _request(self, action, message, dataBytes=None, attempt=0, timeoutSeconds=90):
 		if attempt > _REQUEST_TRIES:
@@ -181,8 +191,9 @@ class MapLargeClient(object):
 		timeout.cancel()
 
 		# Check for exceptions from poller process
-		if self._shared_exception.value:
-			raise Exception(self._shared_exception.value)
+		pending_exception = self._drain_exceptions()
+		if pending_exception:
+			raise Exception(pending_exception)
 		elif not id in self._requests:
 			raise Exception(f"Request {action} timed out")
 		elif self._requests[id]["complete"] == False:
@@ -251,10 +262,12 @@ class MapLargeClient(object):
 		self._shared_connectedSelf.value = False
 		self._shared_connectedRemote.value = False
 
-		if self._shared_exception.value:
-			temp_exception = self._shared_exception.value
-			self._shared_exception.value = ""
-			raise Exception(temp_exception)
+		if self in MapLargeClient.running_clients:
+			MapLargeClient.running_clients.remove(self)
+
+		pending_exception = self._drain_exceptions()
+		if pending_exception:
+			raise Exception(pending_exception)
 
 	def start(self):
 		# Check if already running and process is actually alive
@@ -287,18 +300,29 @@ class MapLargeClient(object):
 		self._shared_connectedSelf.value = False
 		self._shared_connectedRemote.value = False
 		self._shared_running.value = True
-		self._shared_exception.value = ""
+		self._drain_exceptions()
 		
 		logging.info(f"Starting poll process with ports: main={self._port}, hbReq={self._hbReqPort}, hbRep={self._hbRepPort}, queue={self._queue_address}")
 		self._runProcess = Process(target=_run_poll_loop, args=(
 			self._port, self._hbReqPort, self._hbRepPort,
 			self._queue_address, self._shared_connectedSelf,
-			self._shared_connectedRemote, self._shared_exception,
+			self._shared_connectedRemote, self._exception_queue,
 			self._should_continue_event, self._response_queue,
 			self._shared_running
 		))
 		self._runProcess.start()
 		logging.info(f"Poll process started with PID {self._runProcess.pid}")
+
+		if self not in MapLargeClient.running_clients:
+			MapLargeClient.running_clients.append(self)
+
+	@staticmethod
+	def stop_all():
+		for client in list(MapLargeClient.running_clients):
+			try:
+				client.stop()
+			except Exception as e:
+				logging.warning(f"Error stopping client: {e}")
 
 	def _ping(self):
 		self._request()
@@ -317,11 +341,11 @@ class MapLargeClient(object):
 	def _handle_sigterm(self, signum, frame):
 		try:
 			logging.info(f"Received signal {signum}, stopping poll process")
-			self.stop()
+			MapLargeClient.stop_all()
 		except:
 			pass
 		
-		raise SystemExit(0)
+		os._exit(0)
 
 	def SetOutputSchema(self, copyFromSource=None, columns=None):
 		request = {}
@@ -562,10 +586,35 @@ class MapLargeClient(object):
 			combined_bytes += m
 
 		return ProxyResponse(io.BytesIO(combined_bytes))
+	
+	def Log(self, message, level=logging.INFO):
+		self._request("Log", {
+			"message": message,
+			"level": self._log_level_to_maplarge_log_level(level)
+		})
+
+	def GetLogs(self, level=None, startTime=None, endTime=None, start=0, take=100):
+		message = self._request("GetLogs", {
+			"level": self._log_level_to_maplarge_log_level(level),
+			"startTime": startTime,
+			"endTime": endTime,
+			"start": start,
+			"take": take
+		})
+		resp = json.loads(message)
+		return pd.DataFrame(resp["logs"])
+	
+	def _log_level_to_maplarge_log_level(self, level):
+		if level is None or level == logging.NOTSET:
+			return None
+		elif level == logging.CRITICAL:
+			return logging._levelToName[logging.ERROR]
+		else:
+			return logging._levelToName[level]
 
 def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 	shared_connectedSelf, shared_connectedRemote,
-	shared_exception, should_continue_event, response_queue,
+	exception_queue, should_continue_event, response_queue,
 	shared_running):
 	context: zmq.Context = None
 	socket = None
@@ -702,7 +751,10 @@ def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 					print(lost_heartbeat_message, file=sys.stderr)
 						
 	except Exception as e:
-		shared_exception.value = str(e)
+		try:
+			exception_queue.put_nowait(str(e))
+		except:
+			pass
 	finally:
 		shared_running.value = False
 		# Clean up sockets

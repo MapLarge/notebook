@@ -13,7 +13,9 @@ mkdir -p /maplarge/config
 
 cp $connection_file /maplarge/config/connection.json
 
-python3 -m ipykernel_launcher --ip=0.0.0.0 -f /maplarge/config/connection.json --InteractiveShellApp.exec_lines="from maplargeclient import *; import maplarge; maplarge.Start();" &
+EXEC_LINE_MAPLARGE="from maplargeclient import *; import maplarge; maplarge.Start()"
+
+python3 -m ipykernel_launcher --ip=0.0.0.0 -f /maplarge/config/connection.json "--InteractiveShellApp.exec_lines=${EXEC_LINE_MAPLARGE}" &
 pid=$!
 
 trap 'exit 0' SIGTERM

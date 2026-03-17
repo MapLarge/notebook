@@ -50,14 +50,15 @@ def Start():
 	ml.start()
 
 def Stop():
-	ml.stop()
+	MapLargeClient.stop_all()
 
 def FinalizeOutput():
 	if MODE == MODES.DESCRIBE or MODE == MODES.EXECUTE:
-		ml.stop()
+		MapLargeClient.stop_all()
+		os._exit(0)
 
 def _connectionCheck(timeoutSecs = 300):
-	timer = Timer(timeoutSecs, ml.stop)
+	timer = Timer(timeoutSecs, MapLargeClient.stop_all)
 	timer.start()
 	ml.start()
 	while not ml.connected and ml.running:
@@ -72,7 +73,7 @@ def SetOutputSchema(copyFromSource=None, columns=None):
 	ml.SetOutputSchema(copyFromSource, columns)
 	#if server just needs the schema, stop execution
 	if MODE == MODES.DESCRIBE:
-		ml.stop()
+		MapLargeClient.stop_all()
 		os._exit(0)
 
 def GetInputSchema(inputs=None):
@@ -104,7 +105,8 @@ def SetOutput(data, additive=False, stop=True, strictSchema=False):
 	_connectionCheck()
 	ml.SetOutput(data, additive, strictSchema)
 	if stop and MODE == MODES.EXECUTE:
-		ml.stop()
+		MapLargeClient.stop_all()
+		os._exit(0)
 
 def ClearOutput():
 	_connectionCheck()
@@ -145,6 +147,14 @@ def GetAuth(originalToken=None, durationSeconds=None):
 def ProxyRequest(url, method='GET', headers={}, contentText=None, includeAuth=True):
 	_connectionCheck()
 	return ml.ProxyRequest(url, method, headers, contentText, includeAuth)
+
+def Log(message, level=logging.INFO):
+	_connectionCheck()
+	ml.Log(message, level)
+
+def GetLogs(level=None, startTime=None, endTime=None, start=0, take=100):
+	_connectionCheck()
+	return ml.GetLogs(level, startTime, endTime, start, take)
 
 def _getSecret(name=None, path=None):
 	field = None
