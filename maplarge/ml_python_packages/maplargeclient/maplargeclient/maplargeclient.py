@@ -29,9 +29,12 @@ class TableInfo:
 	def __repr__(self):
 		return "TableInfo({0}, {1} columns])".format(self.name, len(self.columns))
 
-	def __init__(self, name, columns):
+	def __init__(self, name, columns, sourceTable=None, sourceQuery=None):
 		self.name = name
 		self.columns = columns
+		self.sourceTable = sourceTable
+		self.sourceQuery = sourceQuery
+
 
 class Event(object):
 	def __init__(self):
@@ -368,10 +371,12 @@ class MapLargeClient(object):
 
 		output = {}
 
-		for table in resp["sources"]:
-			columns = [ColumnInfo(name, type) for name, type in zip(resp["sources"][table]["columnNames"], resp["sources"][table]["columnTypes"])]
-
-			output[table] = TableInfo(table, columns)
+		for inputName in resp["sources"]:
+			sourceTable = resp["sources"][inputName]
+			columns = [ColumnInfo(name, type) for name, type in zip(sourceTable["columnNames"], sourceTable["columnTypes"])]
+			sourceTableName = sourceTable["sourceTable"] if "sourceTable" in sourceTable else None
+			sourceQuery = sourceTable["sourceQuery"] if "sourceQuery" in sourceTable else None
+			output[inputName] = TableInfo(inputName, columns, sourceTableName, sourceQuery)
 
 		return output
 
