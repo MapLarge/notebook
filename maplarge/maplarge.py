@@ -156,6 +156,15 @@ def GetLogs(level=None, startTime=None, endTime=None, start=0, take=100):
 	_connectionCheck()
 	return ml.GetLogs(level, startTime, endTime, start, take)
 
+def ExecuteQuery(queryJson, start=None, take=None, useNullValues=True):
+	_connectionCheck()
+	return ml.ExecuteQuery(queryJson, start, take, useNullValues)
+
+def ExecuteQueryIterator(queryJson, pageSize=100000, useNullValues=True):
+	_connectionCheck()
+	for value in ml.ExecuteQueryIterator(queryJson, pageSize, useNullValues):
+		yield value
+
 def _getSecret(name=None, path=None):
 	field = None
 	searchValue = None
@@ -208,3 +217,6 @@ def GetSecretBytes(name=None, path=None, encoding="utf-8"):
 			return f.read()
 	
 	return env_var.encode(encoding) if env_var else None
+
+def SetTimeout(timeout_seconds: int | None):
+	ml.SetTimeout(timeout_seconds)

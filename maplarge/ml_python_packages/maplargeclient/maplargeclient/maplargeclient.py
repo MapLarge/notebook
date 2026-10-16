@@ -67,6 +67,11 @@ class ProxyResponse:
 		with open(file_path, 'wb') as f:
 			f.write(self.response.getvalue())
 
+class ExecuteQueryResult:
+	def __init__(self, data: pd.DataFrame, totalRecordCount: int):
+		self.data = data
+		self.totalRecordCount = totalRecordCount
+
 class MapLargeClient(object):
 	running_clients: list['MapLargeClient'] = []
 
@@ -103,6 +108,8 @@ class MapLargeClient(object):
 		
 		self._queue_address = f"ipc://{ipc_path}"
 		self._requests = {}
+
+		self._timeout_seconds: int | None = None
 
 		signal.signal(signal.SIGTERM, self._handle_sigterm)
 
@@ -177,7 +184,8 @@ class MapLargeClient(object):
 			self._queueSocketConnected = False
 			raise
 
-		timeout = Timer(timeoutSeconds, self._clearRequest, args=[id])
+		timeoutSecondsToUse = self._timeout_seconds if self._timeout_seconds is not None else timeoutSeconds
+		timeout = Timer(timeoutSecondsToUse, self._clearRequest, args=[id])
 		timeout.start()
 
 		while(id in self._requests and self._requests[id]["complete"] == False):
@@ -609,6 +617,53 @@ class MapLargeClient(object):
 		resp = json.loads(message)
 		return pd.DataFrame(resp["logs"])
 	
+	def ExecuteQuery(self, queryJson, start=None, take=None, useNullValues=True):
+		if queryJson is None:
+			raise Exception("queryJson is required")
+		if not isinstance(queryJson, str):
+			queryJson = json.dumps(queryJson)
+		
+		message = self._request("ExecuteQuery", {
+			"queryJson": queryJson,
+			"useNullValues": useNullValues,
+			"start": start,
+			"take": take
+		})
+		
+		resp = json.loads(message)
+		df = pd.DataFrame(resp["data"])
+		totalRecordCount = resp["totals"]["Records"]
+		return ExecuteQueryResult(df, totalRecordCount)
+	
+	def ExecuteQueryIterator(self, queryJson, pageSize=100000, useNullValues=True):
+		if queryJson is None:
+			raise Exception("queryJson is required")
+		if not isinstance(queryJson, str):
+			queryJson = json.dumps(queryJson)
+		
+		start = 0
+		while True:
+			message = self._request("ExecuteQuery", {
+				"queryJson": queryJson,
+				"useNullValues": useNullValues,
+				"start": start,
+				"take": pageSize
+			})
+
+			resp = json.loads(message)
+			df = pd.DataFrame(resp["data"])
+			recordCount = resp["totals"]["Records"]
+
+			if df.empty:
+				break
+
+			for _, row in df.iterrows():
+				yield row
+			
+			start += pageSize
+			if start >= recordCount:
+				break
+	
 	def _log_level_to_maplarge_log_level(self, level):
 		if level is None or level == logging.NOTSET:
 			return None
@@ -616,6 +671,11 @@ class MapLargeClient(object):
 			return logging._levelToName[logging.ERROR]
 		else:
 			return logging._levelToName[level]
+
+	def SetTimeout(self, timeout_seconds: int):
+		if timeout_seconds is not None and timeout_seconds <= 0:
+			raise ValueError("Timeout must be a positive integer")
+		self._timeout_seconds = timeout_seconds
 
 def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 	shared_connectedSelf, shared_connectedRemote,
