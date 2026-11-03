@@ -21,11 +21,13 @@ jobs:
           sudo docker image prune -af
           df -h /
 
+      # A release pushes <tag> and latest. A pre-release pushes <tag> only, so workloads that follow
+      # latest do not change. Use a pre-release to test the pipeline.
       - name: Get the release version
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
             echo VERSION=${GITHUB_REF/refs\/tags\//} >> $GITHUB_ENV
-            echo LATEST=true >> $GITHUB_ENV
+            echo LATEST=${{ github.event.release.prerelease == false }} >> $GITHUB_ENV
           else
             echo VERSION=dev >> $GITHUB_ENV
             echo LATEST=false >> $GITHUB_ENV

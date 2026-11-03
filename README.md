@@ -111,7 +111,22 @@ The GPU image is about 11 GB. Pull it once per host.
 
 ## Releases
 
-CI builds all three kernels on every pull request. A published GitHub release builds them again and pushes the release tag and `latest` to Docker Hub and GitHub Container Registry.
+CI builds all three kernels on every pull request. Nothing is pushed.
+
+A published GitHub release builds the kernels again and pushes them to Docker Hub and GitHub Container Registry:
+
+| Release type | Tags pushed |
+| --- | --- |
+| Pre-release | `<tag>` |
+| Release | `<tag>` and `latest` |
+
+Workloads that use pull policy Always on a `latest` tag pull the new image at the next start. To test the pipeline or a new image without that effect:
+
+1. Publish a pre-release, for example `4.142.0-rc1`.
+2. Point a test workload image record at that tag and run notebooks against it.
+3. Publish a normal release when the test passes. This moves `latest`.
+
+Announce package removals before a release that moves `latest`.
 
 ## Version pins
 
