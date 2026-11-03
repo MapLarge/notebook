@@ -1,0 +1,21 @@
+# CPU Analytics kernel - explicit packages added on top of the Base CPU kernel.
+# Edit this file, then run "make lock-cpu-analytics". Re-lock this kernel after any change to the parent lock.
+-r ../base-cpu/requirements.in
+-c ../base-cpu/requirements.txt
+antimeridian
+geopandas
+matplotlib
+mgrs
+networkx
+numba
+numpy
+opencv-python-headless
+pillow
+polars
+pyogrio
+pyproj
+rasterio
+scikit-learn
+scipy
+shapely
+tqdm

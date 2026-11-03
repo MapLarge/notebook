@@ -1,0 +1,10 @@
+# AI/ML GPU kernel - explicit packages added on top of the CPU Analytics kernel.
+# Edit this file, then run "make lock-ai-ml-gpu". Re-lock this kernel after any change to the parent lock.
+# torch resolves from PyPI with CUDA and cuDNN as nvidia-* packages (markers limit them to linux x86_64).
+-r ../cpu-analytics/requirements.in
+-c ../cpu-analytics/requirements.txt
+onnx
+scikit-image
+torch
+torchmetrics
+torchvision
