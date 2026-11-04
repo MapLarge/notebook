@@ -3,14 +3,16 @@
 //
 //   docker buildx bake --print                 show the resolved build
 //   docker buildx bake cpu-analytics --load    build one kernel and its parent for one platform
-//   VERSION=4.142.0 LATEST=true docker buildx bake --push
+//   VERSION=4.143.0 RELEASE=true docker buildx bake --push
 
+// Image version. A release uses the MapLarge server version that the images require, for example 4.143.0.
 variable "VERSION" {
   default = "dev"
 }
 
-// true also tags each image as :latest
-variable "LATEST" {
+// true also tags each image with the minor version (4.143.0 -> 4.143) and latest.
+// The MapLarge server defaults to the minor version tag, so only a full release sets this.
+variable "RELEASE" {
   default = false
 }
 
@@ -22,13 +24,19 @@ variable "NAMESPACE" {
   default = "maplarge"
 }
 
+// 4.143.0 -> ["4.143"]. Anything that is not X.Y.Z (dev, 4.143.0-rc1) -> [].
+function "minor" {
+  params = [version]
+  result = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", version)) ? [regex_replace(version, "^([0-9]+\\.[0-9]+)\\..*$", "$1")] : []
+}
+
 function "tags" {
   params = [name]
   result = flatten([
-    for registry in REGISTRIES : concat(
-      ["${registry}/${NAMESPACE}/${name}:${VERSION}"],
-      LATEST ? ["${registry}/${NAMESPACE}/${name}:latest"] : []
-    )
+    for registry in REGISTRIES : [
+      for version in concat([VERSION], RELEASE ? concat(minor(VERSION), ["latest"]) : []) :
+      "${registry}/${NAMESPACE}/${name}:${version}"
+    ]
   ])
 }
 

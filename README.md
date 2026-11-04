@@ -63,7 +63,7 @@ Replace `cpu-analytics` with `base-cpu` or `ai-ml-gpu`. A build also builds the 
 To build every kernel for every platform and push the tags, use bake directly:
 
 ```
-VERSION=4.142.0 LATEST=true docker buildx bake --push
+VERSION=4.143.0 RELEASE=true docker buildx bake --push
 ```
 
 ## Change a package
@@ -113,20 +113,26 @@ The GPU image is about 11 GB. Pull it once per host.
 
 CI builds all three kernels on every pull request. Nothing is pushed.
 
-A published GitHub release builds the kernels again and pushes them to Docker Hub and GitHub Container Registry:
+A published GitHub release builds the kernels again and pushes them to Docker Hub and GitHub Container Registry. The release tag is the MapLarge server version that the images require, for example `4.143.0`.
 
-| Release type | Tags pushed |
-| --- | --- |
-| Pre-release | `<tag>` |
-| Release | `<tag>` and `latest` |
+| Release type | Tags pushed | Example |
+| --- | --- | --- |
+| Pre-release | `X.Y.Z-suffix` | `4.143.0-rc1` |
+| Release | `X.Y.Z`, `X.Y`, `latest` | `4.143.0`, `4.143`, `latest` |
 
-Workloads that use pull policy Always on a `latest` tag pull the new image at the next start. To test the pipeline or a new image without that effect:
+- `X.Y.Z` never changes after the push.
+- `X.Y` moves to each patch release of that minor version. The MapLarge server pulls this tag by default, so a pre-release never moves it.
+- `latest` is the most recent release.
 
-1. Publish a pre-release, for example `4.142.0-rc1`.
+To test the pipeline or a new image without moving `X.Y` or `latest`:
+
+1. Publish a pre-release, for example `4.143.0-rc1`.
 2. Point a test workload image record at that tag and run notebooks against it.
-3. Publish a normal release when the test passes. This moves `latest`.
+3. Publish a normal release when the test passes.
 
-Announce package removals before a release that moves `latest`.
+Announce package removals before a release.
+
+These images replace `maplarge/notebook`, which stays at its last release and receives no updates.
 
 ## Version pins
 
