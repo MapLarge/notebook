@@ -1,0 +1,15 @@
+# Base CPU kernel - explicit packages. Edit this file, then run "make lock-base-cpu".
+# maplargeclient and mlflowmaplarge are installed from ./common/ml_python_packages with --no-deps;
+# their imports (pandas, pyzmq via ipykernel, mlflow) are covered by the packages below.
+boto3
+ipykernel
+ipython
+mlflow-skinny>=2.12.0,<2.13.0
+# pandas 3 changes default behaviors (copy-on-write, string dtype) and predates mlflow 2.12. Lift once notebooks are validated.
+pandas<3
+pyarrow
+requests
+zstandard
+
+# mlflow 2.12 imports pkg_resources. setuptools 80.9+ prints a UserWarning on every import and 82+ removes it. Lift with the mlflow upgrade.
+setuptools<80.9
