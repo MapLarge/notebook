@@ -1,15 +1,16 @@
 # Kernel images. Run from the repository root.
-#   make build-<kernel>   build the kernel and its parents for this machine as <image>:dev
+#   make build-<kernel>   build the kernel and its parents for this machine as maplarge/notebook:dev<suffix>
 #   make lock-<kernel>    regenerate kernels/<kernel>/requirements.txt from requirements.in
 #   make test-<kernel>    smoke test the :dev image
 # Kernels, in parent order: base-cpu -> cpu-analytics -> ai-ml-gpu
 KERNELS=base-cpu cpu-analytics ai-ml-gpu
 VERSION?=dev
 
-# Image repository of each kernel (see docker-bake.hcl)
-IMAGE_base-cpu=maplarge/ipython-kernel-base
-IMAGE_cpu-analytics=maplarge/ipython-kernel
-IMAGE_ai-ml-gpu=maplarge/ipython-kernel-gpu
+# One image repository; the tag suffix selects the kernel (see docker-bake.hcl)
+IMAGE=maplarge/notebook
+SUFFIX_base-cpu=-slim
+SUFFIX_cpu-analytics=
+SUFFIX_ai-ml-gpu=-gpu
 
 # bake targets to build for each kernel: the kernel and its parents, so every image loads into Docker.
 TARGETS_base-cpu=base-cpu
@@ -31,7 +32,7 @@ lock-%:
 		sh -c "pip install -q pip-tools && pip-compile --quiet --strip-extras --allow-unsafe --output-file requirements.txt requirements.in"
 
 test-%:
-	scripts/smoke-test.sh $(IMAGE_$*):$(VERSION) kernels/$*
+	scripts/smoke-test.sh $(IMAGE):$(VERSION)$(SUFFIX_$*) kernels/$*
 
 build-all: build-ai-ml-gpu
 lock-all: lock-base-cpu lock-cpu-analytics lock-ai-ml-gpu
