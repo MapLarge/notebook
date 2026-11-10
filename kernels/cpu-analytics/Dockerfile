@@ -1,7 +1,7 @@
 # CPU Analytics kernel: the Base CPU kernel plus the spatial, raster, image and numerical packages.
 # Build from the repository root (the parent builds first):
 #   make build-cpu-analytics
-ARG PARENT_IMAGE=maplarge/ipython-kernel-base:latest
+ARG PARENT_IMAGE=maplarge/notebook:latest-slim
 FROM ${PARENT_IMAGE}
 
 # Same values as the parent. The user already exists; these only select it again after the installs.
