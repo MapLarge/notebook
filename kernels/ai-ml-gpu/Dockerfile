@@ -3,7 +3,7 @@
 # toolkit; the host provides the NVIDIA driver and the NVIDIA container runtime.
 # Build from the repository root (the parents build first):
 #   make build-ai-ml-gpu
-ARG PARENT_IMAGE=maplarge/ipython-kernel:latest
+ARG PARENT_IMAGE=maplarge/notebook:latest
 FROM ${PARENT_IMAGE}
 
 # Same values as the parent. The user already exists; these only select it again after the installs.

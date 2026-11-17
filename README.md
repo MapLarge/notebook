@@ -8,13 +8,13 @@ Docker images that run the IPython kernel behind a MapLarge Notebook. The MapLar
 
 The kernels stack. Each derived image starts from its parent image and adds packages.
 
-| Kernel | Image | Parent | Adds | Platforms |
-| --- | --- | --- | --- | --- |
-| Base CPU | `maplarge/ipython-kernel-base` | `python:3.13-slim` | Kernel user, entrypoint, pandas, pyarrow, boto3, MLflow client | amd64, arm64 |
-| CPU Analytics | `maplarge/ipython-kernel` | Base CPU | GeoPandas, Shapely, rasterio, scikit-learn, SciPy, OpenCV, Polars, matplotlib and related packages | amd64, arm64 |
-| AI/ML GPU | `maplarge/ipython-kernel-gpu` | CPU Analytics | PyTorch, torchvision, torchmetrics, ONNX, scikit-image | amd64 |
+| Kernel | Directory | Tag | Parent | Adds | Platforms |
+| --- | --- | --- | --- | --- | --- |
+| Slim | `kernels/base-cpu` | `maplarge/notebook:latest-slim` | `python:3.13-slim` | Kernel user, entrypoint, pandas, pyarrow, boto3, MLflow client | amd64, arm64 |
+| CPU | `kernels/cpu-analytics` | `maplarge/notebook:latest` | Slim | GeoPandas, Shapely, rasterio, scikit-learn, SciPy, OpenCV, Polars, matplotlib and related packages | amd64, arm64 |
+| GPU | `kernels/ai-ml-gpu` | `maplarge/notebook:latest-gpu` | CPU | PyTorch, torchvision, torchmetrics, ONNX, scikit-image | amd64 |
 
-The images publish to Docker Hub (`maplarge/...`) and to GitHub Container Registry (`ghcr.io/maplarge/...`) with the release version and `latest` as tags.
+All kernels publish to one image repository, `maplarge/notebook`, on Docker Hub and on GitHub Container Registry (`ghcr.io/maplarge/notebook`). The tag suffix selects the kernel. The CPU kernel is the default and has no suffix. See [Releases](#releases) for the full tag list.
 
 See `kernels/<kernel>/requirements.in` for the explicit package list of each kernel and `kernels/<kernel>/requirements.txt` for the exact versions that the image installs.
 
@@ -54,7 +54,7 @@ The Python site-packages directory is read-only for the kernel user. A `pip inst
 Requirements: Docker with Buildx, and GNU Make. Run all commands from the repository root.
 
 ```
-make build-cpu-analytics   # builds maplarge/ipython-kernel-base:dev, then maplarge/ipython-kernel:dev
+make build-cpu-analytics   # builds maplarge/notebook:dev-slim, then maplarge/notebook:dev
 make test-cpu-analytics    # smoke test
 ```
 
@@ -81,7 +81,7 @@ Packages that are not in a kernel install on demand. Use the notebook dependency
 Start from the published kernel that is closest to your needs and add packages. Switch to root for the install and back to the kernel user afterwards.
 
 ```Dockerfile
-FROM maplarge/ipython-kernel:4.142.0
+FROM maplarge/notebook:4.144.0
 
 USER root
 RUN pip3 install --no-cache-dir seaborn==0.13.2 statsmodels==0.14.4
@@ -115,13 +115,14 @@ CI builds all three kernels on every pull request. Nothing is pushed.
 
 A published GitHub release builds the kernels again and pushes them to Docker Hub and GitHub Container Registry. The release tag is the MapLarge server version that the images require, for example `4.143.0`.
 
-| Release type | Tags pushed | Example |
+| Kernel | Pre-release | Release |
 | --- | --- | --- |
-| Pre-release | `X.Y.Z-suffix` | `4.143.0-rc1` |
-| Release | `X.Y.Z`, `X.Y`, `latest` | `4.143.0`, `4.143`, `latest` |
+| Slim | `4.144.0-rc1-slim` | `4.144.0-slim`, `4.144-slim`, `latest-slim` |
+| CPU | `4.144.0-rc1` | `4.144.0`, `4.144`, `latest` |
+| GPU | `4.144.0-rc1-gpu` | `4.144.0-gpu`, `4.144-gpu`, `latest-gpu` |
 
 - `X.Y.Z` never changes after the push.
-- `X.Y` moves to each patch release of that minor version. The MapLarge server pulls this tag by default, so a pre-release never moves it.
+- `X.Y` moves to each patch release of that minor version. The MapLarge server pulls `maplarge/notebook:X.Y` by default, so a pre-release never moves it.
 - `latest` is the most recent release.
 
 To test the pipeline or a new image without moving `X.Y` or `latest`:
@@ -132,7 +133,7 @@ To test the pipeline or a new image without moving `X.Y` or `latest`:
 
 Announce package removals before a release.
 
-These images replace `maplarge/notebook`, which stays at its last release and receives no updates.
+Releases before 4.144 published one image, `maplarge/notebook:X.Y.Z`. That image matches the CPU kernel, which keeps the unsuffixed tags.
 
 ## Version pins
 
