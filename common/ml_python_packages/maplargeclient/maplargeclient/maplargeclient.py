@@ -492,10 +492,11 @@ class MapLargeClient(object):
 
 		self._request("SetBinaryData", request, data)
 
-	def ListFiles(self, path, recursive=False):
+	def ListFiles(self, path, recursive=False, account=None):
 		request = {
 			"path": path,
-			"recursive": recursive
+			"recursive": recursive,
+			"account": account
 		}
 
 		message = self._request("ListFiles", request)
@@ -503,20 +504,22 @@ class MapLargeClient(object):
 		resp = json.loads(message)
 		return pd.DataFrame(resp["files"])
 
-	def GetFileBytes(self, path):
+	def GetFileBytes(self, path, account=None):
 		request = {
-			"path": path
+			"path": path,
+			"account": account
 		}
 
 		message = self._request("GetFileBytes", request)
 
+		return self._bytesFromParts(message)
+
+	def _bytesFromParts(self, message):
 		combined_bytes = bytearray()
 		for m in message:
 			combined_bytes += m
 
-		handle = io.BytesIO(combined_bytes)
-
-		return handle
+		return io.BytesIO(combined_bytes)
 
 	def GetBinaryData(self, source, column, rowIndex = -1, format = None, maxDimension = None, mediaKeyColumns = None, mediaKeyValues = None, filter=None):
 		request = {
@@ -549,8 +552,35 @@ class MapLargeClient(object):
 
 		return handle
 
-	def SaveFile(self, path, savePath):
-		contents = self.GetFileBytes(path)
+	def SaveFile(self, path, savePath, account=None):
+		contents = self.GetFileBytes(path, account)
+
+		with open(savePath, "wb") as f:
+			f.write(contents.getbuffer())
+
+	def ListJobArtifacts(self, jobId):
+		if not jobId:
+			raise Exception("jobId is required.")
+
+		message = self._request("ListJobArtifacts", {
+			"jobId": str(jobId)
+		})
+
+		resp = json.loads(message)
+		return pd.DataFrame(resp["artifacts"])
+
+	def GetJobArtifact(self, artifactId):
+		if not artifactId:
+			raise Exception("artifactId is required.")
+
+		message = self._request("GetJobArtifact", {
+			"artifactId": str(artifactId)
+		})
+
+		return self._bytesFromParts(message)
+
+	def SaveJobArtifact(self, artifactId, savePath):
+		contents = self.GetJobArtifact(artifactId)
 
 		with open(savePath, "wb") as f:
 			f.write(contents.getbuffer())
@@ -677,6 +707,9 @@ class MapLargeClient(object):
 			raise ValueError("Timeout must be a positive integer")
 		self._timeout_seconds = timeout_seconds
 
+# Replies whose extra frames are raw bytes; every other reply carries one UTF-8 JSON frame
+_BINARY_RESPONSES = ('GetBinaryDataResponse', 'GetFileBytesResponse', 'ProxyRequestResponse', 'MLFLOWDownloadFileResponse', 'GetJobArtifactResponse')
+
 def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 	shared_connectedSelf, shared_connectedRemote,
 	exception_queue, should_continue_event, response_queue,
@@ -748,7 +781,7 @@ def _run_poll_loop(port, hbReqPort, hbRepPort, queue_address,
 
 				logging.debug(f'message received. {version_part} - {header_part}')
 
-				if header_part == 'GetBinaryDataResponse' or header_part == 'GetFileBytesResponse' or header_part == 'ProxyRequestResponse' or header_part == 'MLFLOWDownloadFileResponse':
+				if header_part in _BINARY_RESPONSES:
 					# These types send a list of byte arrays
 					# Serialize byte arrays for queue
 					response_queue.put((id_part, header_part, message[3:]))

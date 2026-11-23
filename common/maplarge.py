@@ -112,25 +112,37 @@ def ClearOutput():
 	_connectionCheck()
 	ml.ClearOutput()
 
-def ListFiles(path, recursive=False):
+def ListFiles(path, recursive=False, account=None):
 	_connectionCheck()
-	return ml.ListFiles(path, recursive)
+	return ml.ListFiles(path, recursive, account)
 
 def SetBinaryData(column, rowIndex, data, format=None, copyGeoFrom=None, mediaType=None):
 	_connectionCheck()
 	return ml.SetBinaryData(column, rowIndex, data, format, copyGeoFrom, mediaType)
 
-def GetFileBytes(path):
+def GetFileBytes(path, account=None):
 	_connectionCheck()
-	return ml.GetFileBytes(path)
+	return ml.GetFileBytes(path, account)
 
 def GetBinaryData(source, column, rowIndex = -1, format = None, maxDimension = None, mediaKeyColumns = None, mediaKeyValues = None, filter = None):
 	_connectionCheck()
 	return ml.GetBinaryData(source, column, rowIndex, format, maxDimension = maxDimension, mediaKeyColumns = mediaKeyColumns, mediaKeyValues = mediaKeyValues, filter = filter)
 
-def SaveFile(path, savePath):
+def SaveFile(path, savePath, account=None):
 	_connectionCheck()
-	return ml.SaveFile(path, savePath)
+	return ml.SaveFile(path, savePath, account)
+
+def ListJobArtifacts(jobId):
+	_connectionCheck()
+	return ml.ListJobArtifacts(jobId)
+
+def GetJobArtifact(artifactId):
+	_connectionCheck()
+	return ml.GetJobArtifact(artifactId)
+
+def SaveJobArtifact(artifactId, savePath):
+	_connectionCheck()
+	return ml.SaveJobArtifact(artifactId, savePath)
 
 def GetWorkloadInfo(workloadName=None, workloadId=None):
 	_connectionCheck()
